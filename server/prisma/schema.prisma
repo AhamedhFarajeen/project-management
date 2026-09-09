@@ -16,7 +16,11 @@ datasource db {
 
 model User {
   userId            Int     @id @default(autoincrement())
-  cognitoId         String  @unique
+  // Unlinked existing/demo users retain their integer IDs and relationships.
+  clerkUserId       String? @unique
+  // Retained historical identity data; unavailable to application Prisma Client.
+  legacyAuthId      String? @unique @ignore
+  email             String?
   username          String  @unique
   profilePictureUrl String?
   teamId            Int?

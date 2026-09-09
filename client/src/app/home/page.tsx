@@ -5,7 +5,8 @@ import {
   Project,
   Task,
   useGetProjectsQuery,
-  useGetTasksQuery,
+  useGetTasksByUserQuery,
+  useGetCurrentUserQuery,
 } from "@/state/api";
 import React from "react";
 import { useAppSelector } from "../redux";
@@ -36,11 +37,12 @@ const taskColumns: GridColDef[] = [
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 const HomePage = () => {
+  const { data: currentUser } = useGetCurrentUserQuery();
   const {
     data: tasks,
     isLoading: tasksLoading,
     isError: tasksError,
-  } = useGetTasksQuery({ projectId: parseInt("1") });
+  } = useGetTasksByUserQuery(currentUser?.userId ?? 0, { skip: !currentUser?.userId });
   const { data: projects, isLoading: isProjectsLoading } =
     useGetProjectsQuery();
 

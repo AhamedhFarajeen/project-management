@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
   TypedUseSelectorHook,
@@ -26,13 +27,13 @@ import createWebStorage from "redux-persist/lib/storage/createWebStorage";
 /* REDUX PERSISTENCE */
 const createNoopStorage = () => {
   return {
-    getItem(_key: any) {
+    getItem() {
       return Promise.resolve(null);
     },
-    setItem(_key: any, value: any) {
+    setItem(_key: string, value: string) {
       return Promise.resolve(value);
     },
-    removeItem(_key: any) {
+    removeItem() {
       return Promise.resolve();
     },
   };
@@ -55,11 +56,12 @@ const rootReducer = combineReducers({
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
 /* REDUX STORE */
-export const makeStore = () => {
+export const makeStore = (getToken: () => Promise<string | null>) => {
   return configureStore({
     reducer: persistedReducer,
     middleware: (getDefault) =>
       getDefault({
+        thunk: { extraArgument: { getToken } },
         serializableCheck: {
           ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
         },
@@ -80,15 +82,18 @@ export default function StoreProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const storeRef = useRef<AppStore>();
-  if (!storeRef.current) {
-    storeRef.current = makeStore();
-    setupListeners(storeRef.current.dispatch);
-  }
-  const persistor = persistStore(storeRef.current);
+  const { getToken } = useAuth();
+  // DashboardWrapper remounts this provider when the Clerk session changes.
+  const [store] = useState(() => makeStore(getToken));
+  const [persistor] = useState(() => persistStore(store));
+  useEffect(() => {
+    const cleanup = setupListeners(store.dispatch);
+    persistor.persist();
+    return () => { cleanup(); persistor.pause(); };
+  }, [store, persistor]);
 
   return (
-    <Provider store={storeRef.current}>
+    <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         {children}
       </PersistGate>

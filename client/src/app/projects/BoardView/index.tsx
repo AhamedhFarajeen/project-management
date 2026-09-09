@@ -1,10 +1,11 @@
+import { profileImage } from "@/lib/profileImage";
 import { useGetTasksQuery, useUpdateTaskStatusMutation} from "@/state/api";
 import React from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Task as TaskType } from "@/state/api";
 import { EllipsisVertical, MessageSquareMore, Plus } from "lucide-react";
-import { format } from "date-fns"; 
+import { format } from "date-fns";
 import Image from "next/image";
 
 type BoardProps = {
@@ -64,7 +65,7 @@ const TaskColumn = ({
   const [{ isOver }, drop] = useDrop(() =>( {
     accept: "task",
     drop: (item: { id: number }) => moveTask(item.id, status),
-    collect: (monitor: any) => ({
+    collect: (monitor) => ({
       isOver: !!monitor.isOver()
     })
     }))
@@ -72,7 +73,7 @@ const TaskColumn = ({
 
     const tasksCount = tasks.filter((task) => task.status === status).length;
 
-    const statusColor: any = {
+    const statusColor: Record<string, string> = {
     "To Do": "#2563EB",
     "Work In Progress": "#059669",
     "Under Review": "#D97706",
@@ -130,10 +131,10 @@ const Task = ({ task }: TaskProps) => {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: "task",
     item: { id: task.id },
-    collect: (monitor: any) => ({
+    collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
-  })); 
+  }));
 
     const taskTagsSplit = task.tags ? task.tags.split(",") : [];
 
@@ -145,24 +146,14 @@ const Task = ({ task }: TaskProps) => {
     : "";
 
     const numberOfComments = (task.comments && task.comments.length) || 0;
+    const assignedThroughJoin = task.taskAssignments?.map(({ user }) => user) ?? [];
+    const assignees = assignedThroughJoin.length
+      ? assignedThroughJoin
+      : task.assignee
+        ? [task.assignee]
+        : [];
 
-  const PriorityTag = ({ priority }: { priority: TaskType["priority"] }) => (
-    <div
-      className={`rounded-full px-2 py-1 text-xs font-semibold ${
-        priority === "Urgent"
-          ? "bg-red-200 text-red-700"
-          : priority === "High"
-            ? "bg-yellow-200 text-yellow-700"
-            : priority === "Medium"
-              ? "bg-green-200 text-green-700"
-              : priority === "Low"
-                ? "bg-blue-200 text-blue-700"
-                : "bg-gray-200 text-gray-700"
-      }`}
-    >
-      {priority}
-    </div>
-  );
+
 
 
    return (
@@ -225,20 +216,20 @@ const Task = ({ task }: TaskProps) => {
         {/* Users */}
         <div className="mt-3 flex items-center justify-between">
           <div className="flex -space-x-[6px] overflow-hidden">
-            {task.assignee && (
+            {assignees.map((assignee) => (
               <Image
-                key={task.assignee.userId}
-                src={`/${task.assignee.profilePictureUrl!}`}
-                alt={task.assignee.username}
+                key={assignee.userId}
+                src={profileImage(assignee.profilePictureUrl)}
+                alt={assignee.username}
                 width={30}
                 height={30}
                 className="h-8 w-8 rounded-full border-2 border-white object-cover dark:border-dark-secondary"
               />
-            )}
+            ))}
             {task.author && (
               <Image
                 key={task.author.userId}
-                src={`/${task.author.profilePictureUrl!}`} 
+                src={profileImage(task.author.profilePictureUrl)}
                 alt={task.author.username}
                 width={30}
                 height={30}
@@ -258,8 +249,25 @@ const Task = ({ task }: TaskProps) => {
   );
 
 
-} 
+}
 
+
+  const PriorityTag = ({ priority }: { priority: TaskType["priority"] }) => (
+    <div
+      className={`rounded-full px-2 py-1 text-xs font-semibold ${
+        priority === "Urgent"
+          ? "bg-red-200 text-red-700"
+          : priority === "High"
+            ? "bg-yellow-200 text-yellow-700"
+            : priority === "Medium"
+              ? "bg-green-200 text-green-700"
+              : priority === "Low"
+                ? "bg-blue-200 text-blue-700"
+                : "bg-gray-200 text-gray-700"
+      }`}
+    >
+      {priority}
+    </div>
+  );
 
 export default BoardView;
-

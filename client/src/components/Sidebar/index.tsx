@@ -1,13 +1,11 @@
 "use client"
 import React, { useState } from 'react'
 import Image from 'next/image';
-import {AlertCircle, AlertOctagon, AlertTriangle, Briefcase, ChevronDown, ChevronUp, HomeIcon, Icon, Layers3, LockIcon, LucideIcon, Search, Settings, ShieldAlert, User, Users, X } from 'lucide-react';
+import {AlertCircle, AlertOctagon, AlertTriangle, Briefcase, ChevronDown, ChevronUp, HomeIcon, Layers3, LockIcon, LucideIcon, Search, Settings, ShieldAlert, User, Users, X } from 'lucide-react';
 import { setIsSidebarCollapsed } from '@/state';
 import Link from "next/link";
 import { useAppDispatch,useAppSelector } from '@/app/redux'
 import { usePathname } from 'next/navigation';
-import path from 'path';
-import Home from '@/app/page';
 import { useGetProjectsQuery } from '@/state/api';
 
 
@@ -63,7 +61,7 @@ const Sidebar = () => {
             <SidebarLink
             icon = {HomeIcon}
             label = "Home"
-            href = "/"
+            href = "/home"
             />
             <SidebarLink
             icon = {Briefcase}
@@ -176,7 +174,6 @@ const SidebarLink = ({
     href,
     icon: Icon,
     label,
-    isCollapsed
 }: SidebarLinkProps) => {
     const pathname = usePathname();
     const isActive = pathname === href || (pathname === "/" && href === "/dashboard");

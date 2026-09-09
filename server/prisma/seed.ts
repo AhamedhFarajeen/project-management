@@ -1,58 +1,66 @@
-import { PrismaClient } from "@prisma/client";
-import fs from "fs";
-import path from "path";
-const prisma = new PrismaClient();
+import { Prisma } from "@prisma/client";
+import { prisma } from "../src/lib/prisma";
+import fs from "node:fs";
+import path from "node:path";
 
-async function deleteAllData(orderedFileNames: string[]) {
-  const modelNames = orderedFileNames.map((fileName) => {
-    const modelName = path.basename(fileName, path.extname(fileName));
-    return modelName.charAt(0).toUpperCase() + modelName.slice(1);
-  });
+type Row = Record<string, unknown>;
+type Delegate = {
+  findUnique(args: { where: Row }): Promise<Row | null>;
+  upsert(args: { where: Row; create: Row; update: Row }): Promise<unknown>;
+};
+const models = [
+  ["team", "Team", "id"],
+  ["user", "User", "userId"],
+  ["project", "Project", "id"],
+  ["projectTeam", "ProjectTeam", "id"],
+  ["task", "Task", "id"],
+  ["attachment", "Attachment", "id"],
+  ["comment", "Comment", "id"],
+  ["taskAssignment", "TaskAssignment", "id"],
+] as const;
 
-  for (const modelName of modelNames) {
-    const model: any = prisma[modelName as keyof typeof prisma];
-    try {
-      await model.deleteMany({});
-      console.log(`Cleared data from ${modelName}`);
-    } catch (error) {
-      console.error(`Error clearing data from ${modelName}:`, error);
+export async function seed() {
+  const fixtures = new Map<string, Row[]>();
+  for (const [model, , key] of models) {
+    const rows: Row[] = JSON.parse(fs.readFileSync(path.join(__dirname, "seedData", `${model}.json`), "utf8"));
+    const ids = rows.map(row => row[key]);
+    if (ids.some(id => !Number.isSafeInteger(id) || Number(id) <= 0) || new Set(ids).size !== ids.length) {
+      throw new Error(`Invalid or duplicate fixture identifiers in ${model}`);
     }
+    fixtures.set(model, rows);
   }
-}
-
-async function main() {
-  const dataDirectory = path.join(__dirname, "seedData");
-
-  const orderedFileNames = [
-    "team.json",
-    "project.json",
-    "projectTeam.json",
-    "user.json",
-    "task.json",
-    "attachment.json",
-    "comment.json",
-    "taskAssignment.json",
-  ];
-
-  await deleteAllData(orderedFileNames);
-
-  for (const fileName of orderedFileNames) {
-    const filePath = path.join(dataDirectory, fileName);
-    const jsonData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    const modelName = path.basename(fileName, path.extname(fileName));
-    const model: any = prisma[modelName as keyof typeof prisma];
-
-    try {
-      for (const data of jsonData) {
-        await model.create({ data });
+  await prisma.$transaction(async tx => {
+    // Serialize seed runs, then prevent concurrent writes while repairing sequences.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(731902)`;
+    await tx.$executeRawUnsafe(`LOCK TABLE ${models.map(([, table]) => `"${table}"`).join(", ")} IN SHARE ROW EXCLUSIVE MODE`);
+    for (const [model, , key] of models) {
+      const delegate = tx[model] as unknown as Delegate;
+      for (const row of fixtures.get(model)!) {
+        // Never attach fixture tasks to a different person occupying the same ID.
+        if (model === "user") {
+          const existing = await delegate.findUnique({ where: { [key]: row[key] } });
+          if (existing && existing.username !== row.username) {
+            throw new Error(`Seed user ID ${row[key]} belongs to a different username; no records changed`);
+          }
+        }
+        await delegate.upsert({ where: { [key]: row[key] }, create: row, update: {} });
       }
-      console.log(`Seeded ${modelName} with data from ${fileName}`);
-    } catch (error) {
-      console.error(`Error seeding data for ${modelName}:`, error);
     }
-  }
+    // PostgreSQL does not advance SERIAL sequences for explicit fixture IDs.
+    // Keep sequence values monotonic, including IDs allocated before deleted rows.
+    for (const [, table, key] of models) {
+      const [info] = await tx.$queryRaw<Array<{ name: string }>>`SELECT pg_get_serial_sequence(${`"${table}"`}, ${key}) AS name`;
+      const quotedSequence = info.name.split(".").map(part => `"${part.replace(/^"|"$/g, "").replace(/"/g, '""')}"`).join(".");
+      const [current] = await tx.$queryRawUnsafe<Array<{ value: bigint }>>(`SELECT last_value AS value FROM ${quotedSequence}`);
+      await tx.$queryRawUnsafe(`SELECT setval($1::regclass, GREATEST((SELECT COALESCE(MAX("${key}"), 1) FROM "${table}"), $2::bigint), true)`, info.name, current.value);
+    }
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 60000 });
+  console.log("Seed completed: missing fixtures inserted, existing records preserved, sequences synchronized.");
 }
 
-main()
-  .catch((e) => console.error(e))
-  .finally(async () => await prisma.$disconnect());
+if (require.main === module) {
+  seed().catch(error => {
+    console.error("Seed failed:", error instanceof Error ? error.message : error);
+    process.exitCode = 1;
+  }).finally(() => prisma.$disconnect());
+}

@@ -58,10 +58,18 @@ const columns: GridColDef[] = [
     renderCell: (params) => params.value?.author || "Unknown",
   },
   {
-    field: "assignee",
-    headerName: "Assignee",
-    width: 150,
-    renderCell: (params) => params.value?.assignee || "Unassigned",
+    field: "taskAssignments",
+    headerName: "Assignees",
+    width: 220,
+    renderCell: (params) => {
+      const assignedNames = params.row.taskAssignments?.map(({ user }: { user: { username: string } }) => user.username) ?? [];
+      const names = assignedNames.length
+        ? assignedNames
+        : params.row.assignee
+          ? [params.row.assignee.username]
+          : [];
+      return names.join(", ") || "Unassigned";
+    },
   },
 ];
 

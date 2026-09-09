@@ -1,4 +1,5 @@
 import React from 'react'
+import { UserButton } from '@clerk/nextjs'
 import {Menu, Moon, Search, Settings, Sun} from "lucide-react"
 import Link from 'next/link'
 import { useAppDispatch,useAppSelector } from '@/app/redux'
@@ -35,6 +36,7 @@ const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
         {/*Icons*/}
 
         <div className="flex items-center">
+            <UserButton />
             <button onClick={()=> dispatch(setIsDarkMode(!isDarkMode))} className={
                 isDarkMode? `rounded p-2 dark:hover:bg-gray-700` : `rounded p-2 hover:bg-gray-100`
             }>

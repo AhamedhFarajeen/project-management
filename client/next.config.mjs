@@ -1,15 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "pm-s3-images.s3.us-east-2.amazonaws.com",
-        port: "",
-        pathname: "/**",
-      },
-    ],
-  },
+  // Frontend and Express must use explicitly configured keys from the same Clerk instance.
+  env: { NEXT_PUBLIC_CLERK_KEYLESS_DISABLED: "true" },
+  images: { remotePatterns: [{ protocol: "https", hostname: "img.clerk.com" }] },
 };
 
 export default nextConfig;

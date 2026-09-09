@@ -14,7 +14,7 @@ export const globalSlice = createSlice({
     name: "global",
     initialState,
     reducers:{
-        setIsSidebarCollapsed: (state, action: PlayloadAction<boolean>) =>{
+        setIsSidebarCollapsed: (state, action: PayloadAction<boolean>) =>{
             state.isSidebarCollapsed = action.payload;
 
         },

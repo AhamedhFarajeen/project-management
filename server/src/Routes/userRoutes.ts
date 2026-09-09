@@ -1,9 +1,10 @@
 import { Router } from "express";
 
-import {  getUsers  } from "../controllers/userController";
+import {  getUsers, getCurrentUser } from "../controllers/userController";
 
 const router = Router();
 
+router.get("/me", getCurrentUser);
 router.get("/", getUsers);
 
 

@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { API_BASE_URL } from "@/lib/apiConfig";
 
 export interface Project {
   id: number;
@@ -26,9 +27,10 @@ export enum Status {
 export interface User {
   userId?: number;
   username: string;
-  email: string;
+  email?: string | null;
+  clerkUserId?: string | null;
+  team?: { id: number; teamName: string } | null;
   profilePictureUrl?: string;
-  cognitoId?: string;
   teamId?: number;
 }
 
@@ -56,9 +58,21 @@ export interface Task {
 
   author?: User;
   assignee?: User;
+  taskAssignments?: TaskAssignment[];
   comments?: Comment[];
   attachments?: Attachment[];
 }
+
+export interface TaskAssignment {
+  id: number;
+  userId: number;
+  taskId: number;
+  user: User;
+}
+
+export type CreateTaskInput = Partial<Task> & {
+  assignedUserIds?: number[];
+};
 
 export interface SearchResults {
   tasks?: Task[];
@@ -76,7 +90,13 @@ export interface Team {
 
 export const api = createApi({
   baseQuery: fetchBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
+    baseUrl: API_BASE_URL,
+    prepareHeaders: async (headers, { extra }) => {
+      const { getToken } = extra as { getToken: () => Promise<string | null> };
+      const token = await getToken();
+      if (token) headers.set("Authorization", `Bearer ${token}`);
+      return headers;
+    },
   }),
 
   reducerPath: "api",
@@ -117,7 +137,7 @@ export const api = createApi({
           : [{ type: "Tasks", id: userId }],
     }),
 
-    createTask: build.mutation<Task, Partial<Task>>({
+    createTask: build.mutation<Task, CreateTaskInput>({
       query: (task) => ({
         url: "tasks",
         method: "POST",
@@ -135,6 +155,11 @@ export const api = createApi({
       invalidatesTags: (result, error, { taskId }) => [
         { type: "Tasks", id: taskId },
       ],
+    }),
+
+    getCurrentUser: build.query<User, void>({
+      query: () => "users/me",
+      providesTags: ["Users"],
     }),
 
     getUsers: build.query<User[], void>({
@@ -161,6 +186,7 @@ export const {
   useCreateTaskMutation,
   useUpdateTaskStatusMutation,
   useSearchQuery,
+  useGetCurrentUserQuery,
   useGetUsersQuery,
   useGetTeamsQuery,
   useGetTasksByUserQuery

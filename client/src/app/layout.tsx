@@ -1,3 +1,4 @@
+import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
 import {Inter } from "next/font/google";
 import "./globals.css";
@@ -16,10 +17,12 @@ export default function RootLayout({
 
 }>) {
   return (
+    <ClerkProvider afterSignOutUrl="/sign-in">
     <html lang="en" >
       <body className= {inter.className} >
         <DashboardWrapper>{children}</DashboardWrapper>
       </body>
     </html>
+    </ClerkProvider>
   );
 }

@@ -1,7 +1,7 @@
  import { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 
-const prisma = new PrismaClient();
+
 
 export const getTasks = async (req: Request, res: Response): Promise<void> => {
   const { projectId } = req.query;
@@ -13,6 +13,9 @@ export const getTasks = async (req: Request, res: Response): Promise<void> => {
       include: {
         author: true,
         assignee: true,
+        taskAssignments: {
+          include: { user: true },
+        },
         comments: true,
         attachments: true,
       },
@@ -39,9 +42,28 @@ export const createTask = async (
     dueDate,
     points,
     projectId,
-    authorUserId,
     assignedUserId,
+    assignedUserIds,
   } = req.body;
+
+  if (assignedUserIds !== undefined && !Array.isArray(assignedUserIds)) {
+    res.status(400).json({ message: "assignedUserIds must be an array of user IDs" });
+    return;
+  }
+
+  const assigneeIds = [
+    ...(assignedUserIds ?? []),
+    ...(assignedUserId !== undefined && assignedUserId !== null
+      ? [assignedUserId]
+      : []),
+  ].map(Number);
+
+  if (assigneeIds.some((userId) => !Number.isSafeInteger(userId) || userId <= 0)) {
+    res.status(400).json({ message: "Every assignee must have a valid user ID" });
+    return;
+  }
+
+  const uniqueAssigneeIds = [...new Set(assigneeIds)];
   try {
     const newTask = await prisma.task.create({
       data: {
@@ -54,8 +76,18 @@ export const createTask = async (
         dueDate,
         points,
         projectId,
-        authorUserId,
-        assignedUserId,
+        authorUserId: res.locals.appUser.userId,
+        // Keep the first assignee in the legacy field while multi-assignee
+        // consumers use TaskAssignment.
+        assignedUserId: uniqueAssigneeIds[0],
+        taskAssignments: uniqueAssigneeIds.length
+          ? { create: uniqueAssigneeIds.map((userId) => ({ userId })) }
+          : undefined,
+      },
+      include: {
+        author: true,
+        assignee: true,
+        taskAssignments: { include: { user: true } },
       },
     });
     res.status(201).json(newTask);
@@ -92,17 +124,25 @@ export const getUserTasks = async (
   res: Response
 ): Promise<void> => {
   const { userId } = req.params;
+  if (Number(userId) !== res.locals.appUser.userId) {
+    res.status(403).json({ message: "You can only request your own personal task list" });
+    return;
+  }
   try {
     const tasks = await prisma.task.findMany({
       where: {
         OR: [
           { authorUserId: Number(userId) },
           { assignedUserId: Number(userId) },
+          { taskAssignments: { some: { userId: Number(userId) } } },
         ],
       },
       include: {
         author: true,
         assignee: true,
+        taskAssignments: {
+          include: { user: true },
+        },
       },
     });
     res.json(tasks);
@@ -112,4 +152,3 @@ export const getUserTasks = async (
       .json({ message: `Error retrieving user's tasks: ${error.message}` });
   }
 };
-

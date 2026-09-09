@@ -8,7 +8,7 @@ import { dataGridClassNames, dataGridSxStyles } from "@/lib/utils";
 import {
   Priority,
   Task,
- // useGetAuthUserQuery,
+  useGetCurrentUserQuery,
   useGetTasksByUserQuery,
 } from "@/state/api";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
@@ -63,13 +63,21 @@ const columns: GridColDef[] = [
     field: "author",
     headerName: "Author",
     width: 150,
-    renderCell: (params) => params.value.username || "Unknown",
+    renderCell: (params) => params.value?.username || "Unknown",
   },
   {
-    field: "assignee",
-    headerName: "Assignee",
-    width: 150,
-    renderCell: (params) => params.value.username || "Unassigned",
+    field: "taskAssignments",
+    headerName: "Assignees",
+    width: 220,
+    renderCell: (params) => {
+      const assignedNames = params.row.taskAssignments?.map(({ user }: { user: { username: string } }) => user.username) ?? [];
+      const names = assignedNames.length
+        ? assignedNames
+        : params.row.assignee
+          ? [params.row.assignee.username]
+          : [];
+      return names.join(", ") || "Unassigned";
+    },
   },
 ];
 
@@ -77,9 +85,8 @@ const ReusablePriorityPage = ({ priority }: Props) => {
   const [view, setView] = useState("list");
   const [isModalNewTaskOpen, setIsModalNewTaskOpen] = useState(false);
 
-  //const { data: currentUser } = useGetAuthUserQuery({});
-  //const userId = currentUser?.userDetails?.userId ?? null;
-  const userId = 1;
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const userId = currentUser?.userId ?? null;
   const {
     data: tasks,
     isLoading,
@@ -94,7 +101,7 @@ const ReusablePriorityPage = ({ priority }: Props) => {
     (task: Task) => task.priority === priority,
   );
 
-  if (isTasksError || !tasks) return <div>Error fetching tasks</div>;
+  if (isTasksError) return <div>Error fetching tasks</div>;
 
   return (
     <div className="m-5 p-4">

@@ -8,6 +8,13 @@ type Props = {
 };
 
 const TaskCard = ({ task }: Props) => {
+  const assignedThroughJoin = task.taskAssignments?.map(({ user }) => user) ?? [];
+  const assignees = assignedThroughJoin.length
+    ? assignedThroughJoin
+    : task.assignee
+      ? [task.assignee]
+      : [];
+
   return (
     <div className="mb-3 rounded bg-white p-4 shadow dark:bg-dark-secondary dark:text-white">
       {task.attachments && task.attachments.length > 0 && (
@@ -57,10 +64,16 @@ const TaskCard = ({ task }: Props) => {
         <strong>Author:</strong>{" "}
         {task.author ? task.author.username : "Unknown"}
       </p>
-      <p>
-        <strong>Assignee:</strong>{" "}
-        {task.assignee ? task.assignee.username : "Unassigned"}
-      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <strong>Assignees:</strong>
+        {assignees.length
+          ? assignees.map((user) => (
+              <span key={user.userId} className="rounded-full bg-gray-100 px-2 py-1 text-xs dark:bg-dark-tertiary">
+                {user.username}
+              </span>
+            ))
+          : "Unassigned"}
+      </div>
     </div>
   );
 };

@@ -4,12 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "rimraf dist & npx tsc",
-    "start": "npm run build && mode dist/index.js",
-    "dev" : "npm run build && concurrently \"npx tsc -w\" \"nodemon --exec ts-node src/index.ts\"",
-    "seed": "ts-node prisma/seed.ts"
-
+    "test": "npm run build && node --test tests/*.test.cjs",
+    "build": "rimraf dist && tsc",
+    "start": "node dist/src/index.js",
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "seed": "ts-node prisma/seed.ts",
+    "link-user": "ts-node scripts/link-clerk-user.ts",
+    "test:seed": "node --test tests/seed.integration.cjs"
   },
   "keywords": [],
   "author": "",
@@ -27,6 +28,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.66",
     "@prisma/client": "^5.18.0",
     "body-parser": "^2.3.0",
     "cors": "^2.8.6",
@@ -34,6 +36,9 @@
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "morgan": "^1.11.0",
-    "prisma": "^5.17.0"
+    "prisma": "^5.18.0"
+  },
+  "prisma": {
+    "seed": "node -r ts-node/register prisma/seed.ts"
   }
 }

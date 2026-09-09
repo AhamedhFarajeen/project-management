@@ -1,4 +1,5 @@
 "use client";
+import { profileImage } from "@/lib/profileImage";
 import { useGetUsersQuery } from "@/state/api";
 import React from "react";
 import { useAppSelector } from "../redux";
@@ -31,7 +32,7 @@ const columns: GridColDef[] = [
       <div className="flex h-full w-full items-center justify-center">
         <div className="h-9 w-9">
           <Image
-            src={`/${params.value}`}
+            src={profileImage(params.value)}
             alt={params.row.username}
             width={100}
             height={50}
