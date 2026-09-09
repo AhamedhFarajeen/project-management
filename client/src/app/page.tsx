@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -12,7 +11,6 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Project Management",
@@ -28,10 +26,7 @@ const tasks = [
   { title: "Prepare customer interviews", project: "Research", date: "Sep 14", owner: "SM", complete: false },
 ];
 
-export default async function WelcomePage() {
-  const { userId } = await auth();
-  if (userId) redirect("/home");
-
+export default function WelcomePage() {
   return (
     <div className="min-h-[100svh] bg-[#f3f2ed] text-[#20231f]">
       <header className="border-b border-[#d8d7d0]">

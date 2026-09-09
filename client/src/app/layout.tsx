@@ -17,7 +17,7 @@ export default function RootLayout({
 
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/sign-in">
+    <ClerkProvider afterSignOutUrl="/">
     <html lang="en" >
       <body className= {inter.className} >
         <DashboardWrapper>{children}</DashboardWrapper>
