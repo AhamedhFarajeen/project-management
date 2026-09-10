@@ -1,13 +1,14 @@
 import { Task } from "@/state/api";
-import { format } from "date-fns";
 import Image from "next/image";
 import React from "react";
+import { formatDisplayDate } from "@/lib/utils";
 
 type Props = {
   task: Task;
+  onOpen?: (task: Task) => void;
 };
 
-const TaskCard = ({ task }: Props) => {
+const TaskCard = ({ task, onOpen }: Props) => {
   const assignedThroughJoin = task.taskAssignments?.map(({ user }) => user) ?? [];
   const assignees = assignedThroughJoin.length
     ? assignedThroughJoin
@@ -16,7 +17,7 @@ const TaskCard = ({ task }: Props) => {
       : [];
 
   return (
-    <div className="mb-3 rounded bg-white p-4 shadow dark:bg-dark-secondary dark:text-white">
+    <div onClick={() => onOpen?.(task)} className={`mb-3 rounded bg-white p-4 shadow dark:bg-dark-secondary dark:text-white ${onOpen ? "cursor-pointer" : ""}`}>
       {task.attachments && task.attachments.length > 0 && (
         <div>
           <strong>Attachments:</strong>
@@ -54,11 +55,11 @@ const TaskCard = ({ task }: Props) => {
       </p>
       <p>
         <strong>Start Date:</strong>{" "}
-        {task.startDate ? format(new Date(task.startDate), "P") : "Not set"}
+        {formatDisplayDate(task.startDate)}
       </p>
       <p>
         <strong>Due Date:</strong>{" "}
-        {task.dueDate ? format(new Date(task.dueDate), "P") : "Not set"}
+        {formatDisplayDate(task.dueDate)}
       </p>
       <p>
         <strong>Author:</strong>{" "}

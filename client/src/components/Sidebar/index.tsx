@@ -6,7 +6,7 @@ import { setIsSidebarCollapsed } from '@/state';
 import Link from "next/link";
 import { useAppDispatch,useAppSelector } from '@/app/redux'
 import { usePathname } from 'next/navigation';
-import { useGetProjectsQuery } from '@/state/api';
+import { useGetCurrentUserQuery, useGetProjectsQuery } from '@/state/api';
 
 
 const Sidebar = () => {
@@ -15,13 +15,15 @@ const Sidebar = () => {
     const [showPriority, setShowPriority] = useState(true);
 
     const { data : projects} = useGetProjectsQuery();
+    const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUserQuery();
+    const showAdminLinks = !isUserLoading && currentUser?.role === "ADMIN";
     const dispatch = useAppDispatch();
     const isSidebarCollapsed = useAppSelector(
         (state) => state.global.isSidebarCollapsed,
     );
 
  
-    const sidebarClassNames = `fixed flex flex-col h-[100%] justify-between shadow-xl transition-all duration-300 h-full z-40 dark:bg-black overflow-y-auto bg-white ${isSidebarCollapsed ? "w-0 hidden" :"w-64"}`;
+    const sidebarClassNames = `fixed inset-y-0 left-0 z-40 flex h-full flex-col justify-between overflow-y-auto bg-white shadow-xl transition-all duration-300 dark:bg-black ${isSidebarCollapsed ? "hidden w-0" : "w-64"}`;
 
 
   return (
@@ -78,16 +80,8 @@ const Sidebar = () => {
             label = "Settings"
             href = "/settings"
             />
-            <SidebarLink
-            icon = {User}
-            label = "Users"
-            href = "/users"
-            />
-            <SidebarLink
-            icon = {Users}
-            label = "Teams"
-            href = "/teams"
-            />
+            {showAdminLinks && <SidebarLink icon={User} label="Users" href="/users" />}
+            {showAdminLinks && <SidebarLink icon={Users} label="Teams" href="/teams" />}
         </nav>
 
          {/*Projects links*/}
@@ -183,7 +177,7 @@ const SidebarLink = ({
         <Link href={href} className="w-full">
         <div className={`relative flex cursor-pointer items-center gap-3 transition-colors hover:bg-gray-100 dark:bg-black dark:hover:bg-gray-700 ${
             isActive ? "bg-gray-100 text-white dark:bg-gray-600" : ""       
-        }justify-start px-8 py-3`}
+        } justify-start px-8 py-3`}
         >
             {isActive && (
                 <div className="absolute left-0 top-0 h-[100%] w-[5px] bg-blue-200"/>

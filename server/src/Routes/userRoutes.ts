@@ -1,10 +1,11 @@
 import { Router } from "express";
 
-import {  getUsers, getCurrentUser } from "../controllers/userController";
+import { getUsers, getCurrentUser, updateUserTeam } from "../controllers/userController";
 
 const router = Router();
 
 router.get("/me", getCurrentUser);
+router.patch("/:userId/team", updateUserTeam);
 router.get("/", getUsers);
 
 

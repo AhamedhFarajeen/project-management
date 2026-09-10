@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: "Project Management",
@@ -39,12 +40,8 @@ export default function WelcomePage() {
           </Link>
 
           <nav className="flex items-center gap-3" aria-label="Account navigation">
-            <Link href="/sign-in" className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#e7e5de] ${focus}`}>
-              Sign in
-            </Link>
-            <Link href="/sign-up" className={`hidden items-center gap-2 rounded-full bg-[#252a24] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black sm:inline-flex ${focus}`}>
-              Get started <ArrowUpRight size={15} aria-hidden="true" />
-            </Link>
+            <SignedOut><Link href="/sign-in" className={`rounded-full px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[#e7e5de] ${focus}`}>Sign in</Link><Link href="/sign-up" className={`hidden items-center gap-2 rounded-full bg-[#252a24] px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black sm:inline-flex ${focus}`}>Get started <ArrowUpRight size={15} aria-hidden="true" /></Link></SignedOut>
+            <SignedIn><Link href="/home" className={`rounded-full bg-[#252a24] px-5 py-2.5 text-sm font-medium text-white ${focus}`}>Open dashboard <ArrowUpRight className="ml-1 inline" size={15} aria-hidden="true" /></Link></SignedIn>
           </nav>
         </div>
       </header>
@@ -66,9 +63,8 @@ export default function WelcomePage() {
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-5">
-              <Link href="/sign-up" className={`inline-flex min-h-12 items-center gap-8 rounded-full bg-[#252a24] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black ${focus}`}>
-                Start for free <ArrowRight size={17} aria-hidden="true" />
-              </Link>
+              <SignedOut><Link href="/sign-up" className={`inline-flex min-h-12 items-center gap-8 rounded-full bg-[#252a24] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black ${focus}`}>Start for free <ArrowRight size={17} aria-hidden="true" /></Link></SignedOut>
+              <SignedIn><Link href="/home" className={`inline-flex min-h-12 items-center gap-8 rounded-full bg-[#252a24] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black ${focus}`}>Open dashboard <ArrowRight size={17} aria-hidden="true" /></Link></SignedIn>
               <span className="text-sm text-[#777a73]">No credit card required</span>
             </div>
           </div>

@@ -1,9 +1,10 @@
 import { useAppSelector } from "@/app/redux";
 import Header from "@/components/Header";
 import { dataGridClassNames, dataGridSxStyles } from "@/lib/utils";
-import { useGetTasksQuery } from "@/state/api";
+import { Task, useGetTasksQuery } from "@/state/api";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import React from "react";
+import ModalNewTask from "@/components/ModalNewTask";
 
 type Props = {
   id: string;
@@ -55,7 +56,7 @@ const columns: GridColDef[] = [
     field: "author",
     headerName: "Author",
     width: 150,
-    renderCell: (params) => params.value?.author || "Unknown",
+    renderCell: (params) => params.value?.username || "Unknown",
   },
   {
     field: "taskAssignments",
@@ -74,6 +75,7 @@ const columns: GridColDef[] = [
 ];
 
 const TableView = ({ id, setIsModalNewTaskOpen }: Props) => {
+  const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const isDarkMode = useAppSelector((state) => state.global.isDarkMode);
   const {
     data: tasks,
@@ -86,6 +88,7 @@ const TableView = ({ id, setIsModalNewTaskOpen }: Props) => {
 
   return (
     <div className="h-[540px] w-full px-4 pb-8 xl:px-6">
+      <ModalNewTask key={selectedTask?.id ?? "none"} task={selectedTask ?? undefined} id={id} isOpen={Boolean(selectedTask)} onClose={() => setSelectedTask(null)} />
       <div className="pt-5">
         <Header
           name="Table"
@@ -105,6 +108,7 @@ const TableView = ({ id, setIsModalNewTaskOpen }: Props) => {
         columns={columns}
         className={dataGridClassNames}
         sx={dataGridSxStyles(isDarkMode)}
+        onRowClick={(params) => setSelectedTask(params.row as Task)}
       />
     </div>
   );

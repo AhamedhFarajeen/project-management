@@ -4,4 +4,14 @@ client/dist/
 server/dist/
 client/.env
 server/.env
+client/.env.local
+client/.env.production
+server/.env.local
+server/.env.production
+node_modules
+.DS_Store
 client/.next/
+
+# Local environment files (keep the example templates tracked)
+.env*
+!.env.example

@@ -1,12 +1,14 @@
 import { profileImage } from "@/lib/profileImage";
-import { useGetTasksQuery, useUpdateTaskStatusMutation} from "@/state/api";
+import { useGetCurrentUserQuery, useGetProjectQuery, useGetTasksQuery, useUpdateTaskStatusMutation} from "@/state/api";
+import { canEditTask } from "@/lib/permissions";
 import React from "react";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Task as TaskType } from "@/state/api";
-import { EllipsisVertical, MessageSquareMore, Plus } from "lucide-react";
+import { MessageSquareMore, Plus } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
+import ModalNewTask from "@/components/ModalNewTask";
 
 type BoardProps = {
   id: string;
@@ -23,24 +25,33 @@ const BoardView = ({ id, setIsModalNewTaskOpen }: BoardProps) => {
   } = useGetTasksQuery({ projectId: Number(id) });
 
 
-const [updateTaskStatus] = useUpdateTaskStatusMutation();
+  const [updateTaskStatus] = useUpdateTaskStatusMutation();
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const { data: project } = useGetProjectQuery(Number(id));
+  const [statusError, setStatusError] = React.useState<string | null>(null);
 
   const moveTask = (taskId: number, toStatus: string) => {
-    updateTaskStatus({ taskId, status: toStatus });
+    setStatusError(null);
+    updateTaskStatus({ taskId, status: toStatus }).unwrap().catch(() => {
+      setStatusError("Unable to update task status. Please try again.");
+    });
   };
 
   if (isLoading) return <div>Loading...</div>;
   if (error) return <div>An error occurred while fetching tasks</div>;
 
   return ( <DndProvider backend={HTML5Backend}>
+      {statusError && <p role="alert" className="px-4 pt-4 text-sm text-red-600">{statusError}</p>}
       <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
         {taskStatus.map((status) => (
-          <TaskColumn
+            <TaskColumn
             key={status}
             status={status}
             tasks={tasks || []}
             moveTask={moveTask}
             setIsModalNewTaskOpen={setIsModalNewTaskOpen}
+            currentUser={currentUser}
+            project={project}
           />
         ))}
       </div>
@@ -54,6 +65,8 @@ type TaskColumnProps = {
   tasks: TaskType[];
   moveTask: (taskId: number, toStatus: string) => void;
   setIsModalNewTaskOpen: (isOpen: boolean) => void;
+  currentUser?: import("@/state/api").User;
+  project?: import("@/state/api").Project;
 };
 
 const TaskColumn = ({
@@ -61,6 +74,8 @@ const TaskColumn = ({
   tasks,
   moveTask,
   setIsModalNewTaskOpen,
+  currentUser,
+  project,
 }: TaskColumnProps) => {
   const [{ isOver }, drop] = useDrop(() =>( {
     accept: "task",
@@ -103,9 +118,6 @@ const TaskColumn = ({
             </span>
           </h3>
           <div className="flex items-center gap-1">
-            <button className="flex h-6 w-5 items-center justify-center dark:text-neutral-500">
-              <EllipsisVertical size={26} />
-            </button>
             <button
               className="flex h-6 w-6 items-center justify-center rounded bg-gray-200 dark:bg-dark-tertiary dark:text-white"
               onClick={() => setIsModalNewTaskOpen(true)}
@@ -117,19 +129,24 @@ const TaskColumn = ({
       </div>
 
       {tasks.filter((task) => task.status === status).map((task) => (
-          <Task key={task.id} task={task} />
+          <Task key={task.id} task={task} currentUser={currentUser} project={project} />
         ))}
+      {tasksCount === 0 && <p className="rounded-md border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-400 dark:border-gray-700">No tasks in this column.</p>}
     </div>
   )
   };
 
   type TaskProps = {
   task: TaskType;
+  currentUser?: import("@/state/api").User;
+  project?: import("@/state/api").Project;
 };
 
-const Task = ({ task }: TaskProps) => {
+const Task = ({ task, currentUser, project }: TaskProps) => {
+  const [isEditing, setIsEditing] = React.useState(false);
   const [{ isDragging }, drag] = useDrag(() => ({
     type: "task",
+    canDrag: canEditTask(currentUser, task, project),
     item: { id: task.id },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
@@ -156,11 +173,12 @@ const Task = ({ task }: TaskProps) => {
 
 
 
-   return (
+  const editable = canEditTask(currentUser, task, project);
+  return (
+    <>
+    <ModalNewTask key={task.id} task={task} id={String(task.projectId)} isOpen={isEditing} onClose={() => setIsEditing(false)} />
     <div
-      ref={(instance) => {
-        drag(instance);
-      }}
+      ref={(instance) => { if (editable) drag(instance); }}
       className={`mb-4 rounded-md bg-white shadow dark:bg-dark-secondary ${
         isDragging ? "opacity-50" : "opacity-100"
       }`}
@@ -190,9 +208,6 @@ const Task = ({ task }: TaskProps) => {
               ))}
             </div>
           </div>
-          <button className="flex h-6 w-4 flex-shrink-0 items-center justify-center dark:text-neutral-500">
-            <EllipsisVertical size={26} />
-          </button>
         </div>
 
         <div className="my-3 flex justify-between">
@@ -211,6 +226,7 @@ const Task = ({ task }: TaskProps) => {
         <p className="text-sm text-gray-600 dark:text-neutral-500">
           {task.description}
         </p>
+        {editable && <button type="button" className="mt-3 text-xs font-medium text-blue-600" onClick={() => setIsEditing(true)}>Edit task</button>}
         <div className="mt-4 border-t border-gray-200 dark:border-stroke-dark" />
 
         {/* Users */}
@@ -246,6 +262,7 @@ const Task = ({ task }: TaskProps) => {
         </div>
       </div>
     </div>
+    </>
   );
 
 

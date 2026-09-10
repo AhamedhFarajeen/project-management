@@ -2,9 +2,15 @@ import Modal from "@/components/Modal";
 import {
   Priority,
   Status,
+  Task,
   useCreateTaskMutation,
-  useGetUsersQuery,
+  useDeleteTaskMutation,
+  useUpdateTaskMutation,
+  useGetCurrentUserQuery,
+  useGetProjectMembersQuery,
+  useGetProjectQuery,
 } from "@/state/api";
+import { canEditTask, managesProject } from "@/lib/permissions";
 import React, { useState } from "react";
 import { formatISO } from "date-fns";
 import { Check, Search, X } from "lucide-react";
@@ -13,22 +19,32 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   id?: string | null;
+  task?: Task;
 };
 
-const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
+const ModalNewTask = ({ isOpen, onClose, id = null, task }: Props) => {
   const [createTask, { isLoading }] = useCreateTaskMutation();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<Status>(Status.ToDo);
-  const [priority, setPriority] = useState<Priority>(Priority.Backlog);
-  const [tags, setTags] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [assignedUserIds, setAssignedUserIds] = useState<number[]>([]);
+  const [updateTask, { isLoading: isUpdating }] = useUpdateTaskMutation();
+  const [deleteTask, { isLoading: isDeleting }] = useDeleteTaskMutation();
+  const [title, setTitle] = useState(task?.title ?? "");
+  const [description, setDescription] = useState(task?.description ?? "");
+  const [status, setStatus] = useState<Status>(task?.status ?? Status.ToDo);
+  const [priority, setPriority] = useState<Priority>(task?.priority ?? Priority.Backlog);
+  const [tags, setTags] = useState(task?.tags ?? "");
+  const [startDate, setStartDate] = useState(task?.startDate?.slice(0, 10) ?? "");
+  const [dueDate, setDueDate] = useState(task?.dueDate?.slice(0, 10) ?? "");
+  const [assignedUserIds, setAssignedUserIds] = useState<number[]>(task?.taskAssignments?.map(({ userId }) => userId) ?? (task?.assignedUserId ? [task.assignedUserId] : []));
   const [assigneeSearch, setAssigneeSearch] = useState("");
   const [isAssigneePickerOpen, setIsAssigneePickerOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [projectId, setProjectId] = useState("");
-  const { data: users = [], isLoading: areUsersLoading } = useGetUsersQuery();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const busy = isLoading || isUpdating || isDeleting;
+  const { data: currentUser, isLoading: isUserLoading } = useGetCurrentUserQuery();
+  const { data: project } = useGetProjectQuery(Number(id), { skip: !id });
+  const { data: users = [], isLoading: areUsersLoading } = useGetProjectMembersQuery(Number(id), { skip: !id });
+  const canManage = !isUserLoading && managesProject(currentUser, project);
+  const canEdit = !task || canManage || canEditTask(currentUser, task, project);
 
   const normalizedSearch = assigneeSearch.trim().toLowerCase();
   const matchingUsers = users.filter((user) => {
@@ -57,7 +73,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
   };
 
   const handleSubmit = async () => {
-    if (!isFormValid()) return;
+    if (!isFormValid() || !canEdit) return;
 
     const formattedStartDate = formatISO(new Date(startDate), {
       representation: "complete",
@@ -66,19 +82,23 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
       representation: "complete",
     });
 
-    await createTask({
-      title,
-      description,
-      status,
-      priority,
-      tags,
-      startDate: formattedStartDate,
-      dueDate: formattedDueDate,
-      assignedUserIds,
-      projectId: id !== null ? Number(id) : Number(projectId),
-    }).unwrap();
-    resetForm();
-    onClose();
+    setError(null);
+    try {
+      const data = { title, description, status, priority, tags, startDate: formattedStartDate, dueDate: formattedDueDate, assignedUserIds, projectId: id !== null ? Number(id) : Number(projectId) };
+      if (task) await updateTask({ id: task.id, data }).unwrap();
+      else await createTask(data).unwrap();
+      resetForm();
+      onClose();
+    } catch (error: unknown) {
+      const message = typeof error === "object" && error && "data" in error && typeof error.data === "object" && error.data && "message" in error.data && typeof error.data.message === "string" ? error.data.message : null;
+      setError(message ?? (task ? "Unable to save task. Please try again. Your entered values were kept." : "Unable to create task. Please try again. Your entered values were kept."));
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!task) return;
+    setError(null);
+    try { await deleteTask(task.id).unwrap(); onClose(); } catch { setError("Unable to delete task. Please try again."); }
   };
 
   const isFormValid = () => {
@@ -92,14 +112,16 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
     "w-full rounded border border-gray-300 p-2 shadow-sm dark:border-dark-tertiary dark:bg-dark-tertiary dark:text-white dark:focus:outline-none";
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} name="Create New Task">
+    <Modal isOpen={isOpen} onClose={onClose} name={task ? "Edit Task" : "Create New Task"}>
       <form
-        className="mt-4 space-y-6"
+        className={`mt-4 space-y-6 ${!canEdit ? "pointer-events-none opacity-70" : ""}`}
         onSubmit={(e) => {
           e.preventDefault();
           handleSubmit();
         }}
       >
+        {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+        {!canEdit && <p className="text-sm text-gray-600 dark:text-gray-300">You can view this task, but you do not have permission to edit it.</p>}
         <input
           type="text"
           className={inputStyles}
@@ -164,7 +186,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
             onChange={(e) => setDueDate(e.target.value)}
           />
         </div>
-        <div>
+        {canManage && <div>
           <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
             Assignees
           </label>
@@ -202,7 +224,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
               autoComplete="off"
             />
             {isAssigneePickerOpen && (
-              <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg dark:border-dark-tertiary dark:bg-dark-secondary">
+              <div className="relative z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-gray-200 bg-white p-1 shadow-lg dark:border-dark-tertiary dark:bg-dark-secondary">
                 {areUsersLoading ? (
                   <p className="px-3 py-2 text-sm text-gray-500">Loading users...</p>
                 ) : matchingUsers.length ? (
@@ -239,7 +261,7 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
               </button>
             )}
           </div>
-        </div>
+        </div>}
         {id === null && (
           <input
             type="text"
@@ -252,12 +274,13 @@ const ModalNewTask = ({ isOpen, onClose, id = null }: Props) => {
         <button
           type="submit"
           className={`focus-offset-2 mt-4 flex w-full justify-center rounded-md border border-transparent bg-blue-primary px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 ${
-            !isFormValid() || isLoading ? "cursor-not-allowed opacity-50" : ""
+            !isFormValid() || busy ? "cursor-not-allowed opacity-50" : ""
           }`}
-          disabled={!isFormValid() || isLoading}
+          disabled={!isFormValid() || busy}
         >
-          {isLoading ? "Creating..." : "Create Task"}
+          {busy ? (task ? "Saving..." : "Creating...") : (task ? "Save Changes" : "Create Task")}
         </button>
+        {task && canManage && (!confirmDelete ? <button type="button" onClick={() => setConfirmDelete(true)} className="w-full text-sm text-red-600">Delete task</button> : <div className="flex items-center justify-end gap-3 text-sm"><span>Delete this task?</span><button type="button" disabled={busy} onClick={handleDelete} className="rounded bg-red-600 px-3 py-1 text-white">{isDeleting ? "Deleting..." : "Confirm"}</button><button type="button" disabled={busy} onClick={() => setConfirmDelete(false)}>Cancel</button></div>)}
       </form>
     </Modal>
   );

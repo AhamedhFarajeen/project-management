@@ -29,6 +29,9 @@ app.use(cors(getCorsOptions(allowedOrigins)));
 app.get("/", (req, res) => {
     res. send( "This is home route");
 })
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
 
 if (!process.env.CLERK_SECRET_KEY || !process.env.CLERK_PUBLISHABLE_KEY) {
   throw new Error("CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY must be configured");
@@ -41,6 +44,15 @@ app.use("/tasks", taskRoutes);
 app.use("/search", searchRoutes);
 app.use("/users", userRoutes);
 app.use("/teams", teamRoutes);
+
+app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (res.headersSent) { next(error); return; }
+  console.error("Unhandled API error", { method: req.method, path: req.path, error });
+  res.status(Number.isInteger(error?.statusCode) ? error.statusCode : 500).json({
+    message: "An unexpected server error occurred.",
+    code: "INTERNAL_ERROR",
+  });
+});
 
 
 

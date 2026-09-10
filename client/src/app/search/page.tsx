@@ -45,6 +45,7 @@ const Search = () => {
         {isError && <p>Error occurred while fetching search results.</p>}
         {!isLoading && !isError && searchResults && (
           <div>
+            {!searchResults.tasks?.length && !searchResults.projects?.length && !searchResults.users?.length && <p className="py-8 text-center text-gray-500">No matching results.</p>}
             {searchResults.tasks && searchResults.tasks?.length > 0 && (
               <h2>Tasks</h2>
             )}

@@ -5,10 +5,11 @@ import {
   Project,
   Task,
   useGetProjectsQuery,
-  useGetTasksByUserQuery,
+  useGetMyTasksQuery,
   useGetCurrentUserQuery,
 } from "@/state/api";
-import React from "react";
+import ModalNewProject from "../projects/ModalNewProject";
+import React, { useState } from "react";
 import { useAppSelector } from "../redux";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import Header from "@/components/Header";
@@ -37,12 +38,13 @@ const taskColumns: GridColDef[] = [
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
 
 const HomePage = () => {
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const { data: currentUser } = useGetCurrentUserQuery();
   const {
     data: tasks,
     isLoading: tasksLoading,
     isError: tasksError,
-  } = useGetTasksByUserQuery(currentUser?.userId ?? 0, { skip: !currentUser?.userId });
+  } = useGetMyTasksQuery(undefined, { skip: !currentUser?.userId });
   const { data: projects, isLoading: isProjectsLoading } =
     useGetProjectsQuery();
 
@@ -67,7 +69,8 @@ const HomePage = () => {
 
   const statusCount = projects.reduce(
     (acc: Record<string, number>, project: Project) => {
-      const status = project.endDate ? "Completed" : "Active";
+      const endDate = project.endDate ? new Date(project.endDate) : null;
+      const status = endDate && !Number.isNaN(endDate.getTime()) && endDate < new Date() ? "Completed" : "Active";
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     },
@@ -95,7 +98,8 @@ const HomePage = () => {
 
   return (
     <div className="container h-full w-[100%] bg-gray-100 bg-transparent p-8">
-      <Header name="Project Management Dashboard" />
+      <ModalNewProject isOpen={isNewProjectOpen} onClose={() => setIsNewProjectOpen(false)} />
+      <Header name="Project Management Dashboard" buttonComponent={currentUser?.role !== "MEMBER" ? <button type="button" onClick={() => setIsNewProjectOpen(true)} className="rounded bg-blue-primary px-3 py-2 text-sm font-medium text-white hover:bg-blue-600">Create Project</button> : undefined} />
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div className="rounded-lg bg-white p-4 shadow dark:bg-dark-secondary">
           <h3 className="mb-4 text-lg font-semibold dark:text-white">
@@ -144,6 +148,7 @@ const HomePage = () => {
             Your Tasks
           </h3>
           <div style={{ height: 400, width: "100%" }}>
+            {!tasks.length && <p className="mb-4 text-sm text-gray-500">No tasks assigned yet.</p>}
             <DataGrid
               rows={tasks}
               columns={taskColumns}

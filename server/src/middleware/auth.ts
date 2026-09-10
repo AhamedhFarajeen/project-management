@@ -1,8 +1,10 @@
 import { createHash } from "node:crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma, UserRole } from "@prisma/client";
 import { clerkClient, getAuth } from "@clerk/express";
 import { NextFunction, Request, Response } from "express";
 import { prisma } from "../lib/prisma";
+
+const normalizeEmail = (email: string | null | undefined) => email?.trim().toLowerCase() ?? null;
 
 // Authentication protects the existing shared workspace; team RBAC is separate.
 export function createRequireAppUser(
@@ -24,13 +26,16 @@ export function createRequireAppUser(
         where: { clerkUserId },
         include: { team: true },
       });
-      // Refresh profile data on /users/me and provision on any first API request.
+      // Refresh profile data on /users/me, provision first requests, and check the
+      // configured bootstrap address until that account has been promoted.
+      const bootstrapEmail = normalizeEmail(process.env.INITIAL_ADMIN_EMAIL);
       if (!user || req.path === "/users/me") {
         const profile = await fetchProfile(clerkUserId);
-        const email =
+        const email = normalizeEmail(
           profile.emailAddresses.find(
             (address) => address.id === profile.primaryEmailAddressId,
-          )?.emailAddress ?? null;
+          )?.emailAddress,
+        );
         const fallbackUsername = `member_${createHash("sha256").update(clerkUserId).digest("hex").slice(0, 20)}`;
         const requestedUsername = profile.username || fallbackUsername;
         const existingName = await prisma.user.findUnique({
@@ -40,6 +45,7 @@ export function createRequireAppUser(
           existingName && existingName.clerkUserId !== clerkUserId
             ? fallbackUsername
             : requestedUsername;
+        const shouldPromote = Boolean(bootstrapEmail && email && email === bootstrapEmail);
         const upsert = (createUsername: string) =>
           prisma.user.upsert({
             where: { clerkUserId },
@@ -49,7 +55,11 @@ export function createRequireAppUser(
               email,
               profilePictureUrl: profile.imageUrl,
             },
-            update: { email, profilePictureUrl: profile.imageUrl },
+            update: {
+              email,
+              profilePictureUrl: profile.imageUrl,
+              ...(shouldPromote ? { role: UserRole.ADMIN } : {}),
+            },
             include: { team: true },
           });
         try {

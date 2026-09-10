@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import TaskCard from "@/components/TaskCard";
 import { Task, useGetTasksQuery } from "@/state/api";
 import React from "react";
+import ModalNewTask from "@/components/ModalNewTask";
 
 type Props = {
   id: string;
@@ -9,6 +10,7 @@ type Props = {
 };
 
 const ListView = ({ id, setIsModalNewTaskOpen }: Props) => {
+  const [selectedTask, setSelectedTask] = React.useState<Task | null>(null);
   const {
     data: tasks,
     error,
@@ -20,6 +22,7 @@ const ListView = ({ id, setIsModalNewTaskOpen }: Props) => {
 
   return (
     <div className="px-4 pb-8 xl:px-6">
+      <ModalNewTask key={selectedTask?.id ?? "new"} task={selectedTask ?? undefined} id={id} isOpen={Boolean(selectedTask)} onClose={() => setSelectedTask(null)} />
       <div className="pt-5">
         <Header
           name="List"
@@ -35,7 +38,8 @@ const ListView = ({ id, setIsModalNewTaskOpen }: Props) => {
         />
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-        {tasks?.map((task: Task) => <TaskCard key={task.id} task={task} />)}
+        {tasks?.map((task: Task) => <TaskCard key={task.id} task={task} onOpen={setSelectedTask} />)}
+        {!tasks?.length && <div className="col-span-full rounded border border-dashed p-8 text-center text-gray-500">No tasks yet. Create your first task to start planning.</div>}
       </div>
     </div>
   );
